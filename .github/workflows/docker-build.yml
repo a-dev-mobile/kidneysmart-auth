@@ -26,4 +26,4 @@ jobs:
         context: .
         push: true
         tags: |
-          kidneysmart-auth:latest
+          wayofdt/kidneysmart-auth:latest
