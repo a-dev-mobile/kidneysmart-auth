@@ -1,0 +1,7 @@
+__debug_bin*
+
+.vscode*
+
+
+config/config.yaml
+.env

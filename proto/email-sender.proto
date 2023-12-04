@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package proto;
+// Specifies the Go package where the protocol buffer code will be generated.
+option go_package = "github.com/a-dev-mobile/smtp-server/proto";
+
+// EmailSenderApi defines a service with an RPC method for sending email.
+service EmailSenderApi {
+  //SendEmail - RPC method for sending email.
+  rpc SendEmail (EmailSenderRequest) returns (EmailSenderResponse);
+}
+
+//EmailSenderRequest defines the request structure for sending email.
+message EmailSenderRequest {
+  string recipient_email = 1; // Recipient's email address.
+  string subject = 2;         // Subject of the email.
+  string from_name = 3;       // Display name of the sender.
+  string from_email = 4;      // Displayed email of the sender.
+  string body = 5;            // Message body.
+}
+
+//EmailSenderResponse defines the structure of the response after an attempt to send an email.
+message EmailSenderResponse {
+  bool success = 1; // Indicates whether the send operation was successful.
+  string message = 2;// Error message or submission status.
+}
