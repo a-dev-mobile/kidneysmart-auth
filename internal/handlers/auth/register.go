@@ -1,40 +1,44 @@
 package auth
 
-// import (
-// 	"auth-api/internal/config"
-// 	"auth-api/internal/utils"
-// 	pb "auth-api/proto"
-// 	"context"
+import (
 
-// 	"go.mongodb.org/mongo-driver/bson"
-// 	"go.mongodb.org/mongo-driver/mongo"
-// 	"golang.org/x/exp/slog"
-// )
+	"net/http"
+	//
+	"github.com/a-dev-mobile/kidneysmart-auth/internal/config"
 
-// type AuthServiceServer struct {
-// 	pb.UnimplementedAuthServiceServer
-// 	DB     *mongo.Client
-// 	Config *config.Config
-// 	Logger *slog.Logger
-// }
+	"github.com/gin-gonic/gin"
 
-// func NewAuthServiceServer(db *mongo.Client, cfg *config.Config, lg *slog.Logger) *AuthServiceServer {
-// 	return &AuthServiceServer{
-// 		DB:     db,
-// 		Config: cfg,
-// 		Logger: lg,
-// 	}
-// }
+	"golang.org/x/exp/slog"
+)
 
-// func (s *AuthServiceServer) RegisterUser(ctx context.Context, req *pb.RegistrationRequest) (*pb.RegistrationResponse, error) {
-// 	// Логирование запроса на регистрацию
-// 	s.Logger.Info("RegisterUser called", slog.String("email", req.GetEmail()))
+//
+type AuthServiceContext struct {
 
+
+	Config *config.Config
+	Logger *slog.Logger
+}
+// 
+func NewAuthServiceContext( cfg *config.Config, lg *slog.Logger) *AuthServiceContext {
+	return &AuthServiceContext{
+	
+		Config: cfg,
+		Logger: lg,
+	}
+}
+// 
+func (hctx *AuthServiceContext) RegisterUser(c *gin.Context) {
+
+
+
+	c.JSON(http.StatusOK, "OK")
+
+// // 
 // 	collection := s.DB.Database(s.Config.Database.Name).Collection(s.Config.Database.Collections.Users)
-
+// // 
 // 	// Получение данных регистрации (только email).
 // 	email := req.GetEmail()
-
+// // 
 // 	// Валидация email
 // 	if !utils.ValidateEmail(email) {
 // 		return &pb.RegistrationResponse{
@@ -53,7 +57,7 @@ package auth
 // 			Message: "User with this email already exists",
 // 		}, nil
 // 	}
-
+// // 
 // 	// Создание нового пользователя в базе данных (без пароля).
 // 	_, err = collection.InsertOne(ctx, bson.M{"email": email})
 // 	if err != nil {
@@ -61,7 +65,7 @@ package auth
 // 		s.Logger.Error("Failed to create user", slog.String("email", email), slog.String("error", err.Error()))
 // 		return nil, err
 // 	}
-
+// // 
 // 	// Отправка подтверждающего URL на email
 // 	subject := "Please confirm your email address"
 // 	body := "Here is your confirmation URL: [URL]" // Сформируйте подтверждающий URL
@@ -70,10 +74,7 @@ package auth
 // 		// Обработка ошибки отправки email
 // 		return nil, err
 // 	}
+// 
 
-// 	// Отправка ответа об успешной регистрации.
-// 	return &pb.RegistrationResponse{
-// 		Status:  "success",
-// 		Message: "User registered successfully, please complete registration process",
-// 	}, nil
-// }
+}
+// 

@@ -17,6 +17,7 @@ import (
 
 	"github.com/a-dev-mobile/kidneysmart-auth/database/mongo"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/config"
+	"github.com/a-dev-mobile/kidneysmart-auth/internal/handlers/auth"
 
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/logging"
 
@@ -30,16 +31,23 @@ import (
 
 func main() {
 	cfg, lg := initializeApp()
-
-	lg.Info("Environment used", ".env", cfg.Environment)
-	lg.Debug("init SMTPServer", "config_json", cfg)
-
+	
+	
 	setGinMode(cfg)
-
+	
 	db, cleanup := setupDatabase(cfg, lg)
 	_ = db
 	defer cleanup()
+	router := setupRouter(cfg, lg)
+	
+	hctxCheck := auth.NewAuthServiceContext(cfg,lg)
+	router.POST("kidneysmart-auth/v1/register", hctxCheck.RegisterUser)
 
+	
+	lg.Info("Environment used", ".env", cfg.Environment)
+	lg.Debug("Rest Server starting", "config_json", cfg)
+
+	startServer(cfg, router, lg)
 }
 
 // initializeApp sets up the application environment, configuration, and logger.
