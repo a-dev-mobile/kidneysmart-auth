@@ -11,13 +11,14 @@ import (
 	"strings"
 	"time"
 
-	// pb "github.com/a-dev-mobile/kidneysmart-auth/proto"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/a-dev-mobile/kidneysmart-auth/database/mongo"
+	"github.com/a-dev-mobile/kidneysmart-auth/pkg/emailclient"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/config"
-	"github.com/a-dev-mobile/kidneysmart-auth/internal/handlers/auth"
+
+	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/register"
+	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/verifycode"
 
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/logging"
 
@@ -26,26 +27,45 @@ import (
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/middleware"
 
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
-)
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
 
 func main() {
 	cfg, lg := initializeApp()
-	
-	
-	setGinMode(cfg)
-	
-	db, cleanup := setupDatabase(cfg, lg)
-	_ = db
-	defer cleanup()
-	router := setupRouter(cfg, lg)
-	
-	hctxCheck := auth.NewAuthServiceContext(cfg,lg)
-	router.POST("kidneysmart-auth/v1/register", hctxCheck.RegisterUser)
 
-	
+	// Set up the database connection
+	db, cleanup := setupDatabase(cfg, lg)
+	defer cleanup()
+	setGinMode(cfg)
+
+	// Initialize gRPC connection to SMTP server with updated security settings
+	smtpConn, err := grpc.Dial(
+		cfg.ExternalService.SmtpServer.Grpc.Host+":"+cfg.ExternalService.SmtpServer.Grpc.Port,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),    // Updated to use WithTransportCredentials
+		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(5<<20)), // Set max message size if needed
+	)
+	if err != nil {
+		lg.Error("Failed to connect to SMTP server:", logging.Err(err))
+		os.Exit(1)
+	}
+	defer smtpConn.Close()
+
+	emailClient := emailclient.NewEmailClient(smtpConn)
+
+	// Set up your server's routes and handlers
+	router := setupRouter(cfg, lg)
+
+	// Create a new context for the Register handler including the email client
+	hctxRegister := register.NewRegisterServiceContext(db, lg, cfg, emailClient)
+	router.POST("kidneysmart-auth/v1/register", hctxRegister.RegisterUserHandler)
+	//
+	hctxVerifyCode := verifycode.NewVerifyCodeServiceContext(db, lg, cfg)
+	router.POST("kidneysmart-auth/v1/verify-code", hctxVerifyCode.VerifyCodeHandler)
+
 	lg.Info("Environment used", ".env", cfg.Environment)
-	lg.Debug("Rest Server starting", "config_json", cfg)
+	// lg.Debug("Rest Server starting", "config_json", cfg)
 
 	startServer(cfg, router, lg)
 }

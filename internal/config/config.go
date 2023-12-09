@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"strings"
 	// Errors package for handling errors.
 	"fmt"
 	// Fmt package for formatting strings.
@@ -13,8 +14,6 @@ import (
 	// Yaml.v3 package for YAML processing.
 )
 
-
-
 // Config represents the entire configuration as structured in YAML.
 type Config struct {
 	Environment      Environment    `yaml:"environment"`
@@ -25,7 +24,7 @@ type Config struct {
 }
 
 type LoggingConfig struct {
-	Level      string     `yaml:"level"`
+	Level      LogLevel   `yaml:"level"`
 	FileOutput FileConfig `yaml:"fileOutput"`
 }
 
@@ -52,19 +51,37 @@ type SmtpConfig struct {
 }
 
 type GrpcConfig struct {
-	Host string `yaml:"host"`
-	Port string `yaml:"port"`
+	Host                 string `yaml:"host"`
+	Port                 string `yaml:"port"`
+	MaxConcurrentStreams int    `yaml:"maxConcurrentStreams"`
 }
 
 type DatabaseConfig struct {
-	User              string            `yaml:"user"`
-	Password          string            `yaml:"password"`
-	Host              string            `yaml:"host"`
-	Port              string            `yaml:"port"`
-	Name              string            `yaml:"name"`
-	ConnectionTimeout int               `yaml:"connectionTimeoutSeconds"`
-	MaxPoolSize       int               `yaml:"maxPoolSize"`
-	Collections       map[string]string `yaml:"collections"`
+	User              string                    `yaml:"user"`
+	Password          string                    `yaml:"password"`
+	Host              string                    `yaml:"host"`
+	Port              string                    `yaml:"port"`
+	Name              string                    `yaml:"name"`
+	ConnectionTimeout int                       `yaml:"connectionTimeoutSeconds"`
+	MaxPoolSize       int                       `yaml:"maxPoolSize"`
+	Collections       map[string]CollectionName `yaml:"collections"`
+}
+
+// UnmarshalYAML customizes the unmarshalling for LogLevel.
+func (l *LogLevel) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var levelStr string
+	if err := unmarshal(&levelStr); err != nil {
+		return err
+	}
+
+	levelStr = strings.ToLower(levelStr)
+	switch LogLevel(levelStr) {
+	case LogLevelDebug, LogLevelInfo, LogLevelWarning, LogLevelError:
+		*l = LogLevel(levelStr)
+		return nil
+	default:
+		return fmt.Errorf("invalid log level: %s", levelStr)
+	}
 }
 
 // loadConfig reads and decodes the YAML configuration file.
