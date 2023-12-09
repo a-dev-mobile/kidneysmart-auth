@@ -4,4 +4,4 @@ __debug_bin*
 
 
 config/config.yaml
-
+.env
