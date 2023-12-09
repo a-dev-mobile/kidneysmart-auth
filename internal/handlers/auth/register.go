@@ -20,6 +20,10 @@ type AuthServiceContext struct {
 }
 // 
 func NewAuthServiceContext( cfg *config.Config, lg *slog.Logger) *AuthServiceContext {
+
+
+
+
 	return &AuthServiceContext{
 	
 		Config: cfg,
@@ -28,9 +32,9 @@ func NewAuthServiceContext( cfg *config.Config, lg *slog.Logger) *AuthServiceCon
 }
 // 
 func (hctx *AuthServiceContext) RegisterUser(c *gin.Context) {
+	hctx.Logger.Debug("Start RegisterUser handler")
 
-
-
+	hctx.Logger.Debug("End App handler", "StatusOK", "OK")
 	c.JSON(http.StatusOK, "OK")
 
 // // 
