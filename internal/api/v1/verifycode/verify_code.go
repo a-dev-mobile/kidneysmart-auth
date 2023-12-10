@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	modelDb "github.com/a-dev-mobile/kidneysmart-auth/internal/model/db"
-	"github.com/a-dev-mobile/kidneysmart-auth/internal/config"
 	modelApi "github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/verifycode/model"
+	"github.com/a-dev-mobile/kidneysmart-auth/internal/config"
+	modelDb "github.com/a-dev-mobile/kidneysmart-auth/internal/model/db"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -52,6 +52,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	}
 
 	dbAuthUser, err := s.fetchUser(c.Request.Context(), req.Email)
+
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		utils.RespondWithError(c, http.StatusNotFound, "User not found")
 		return
@@ -60,7 +61,11 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 		utils.RespondWithError(c, http.StatusInternalServerError, "Error retrieving user")
 		return
 	}
-
+	// Check if the email is already verified
+	if dbAuthUser.EmailVerified {
+		utils.RespondWithSuccess(c, http.StatusOK, "Email is already verified", nil)
+		return
+	}
 	// Check if the user has exceeded the maximum number of attempts
 	const MaxAttempts = 5
 	if dbAuthUser.AttemptCount >= MaxAttempts && time.Since(dbAuthUser.LastAttemptTime).Minutes() < 15 {
@@ -73,17 +78,42 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 		utils.RespondWithError(c, http.StatusUnauthorized, "Invalid code")
 		return
 	}
-	// Update the user's email verification status in the database
-	if err := s.UpdateEmailVerificationStatus(c.Request.Context(), req.Email); err != nil {
-		s.Logger.Error("Failed to update user email verification status", "email", req.Email, "error", err.Error())
-		utils.RespondWithError(c, http.StatusInternalServerError, "Error updating user verification status")
-		return
-	}
+    // Update the user's email verification status in the database
+    if err := s.UpdateEmailVerificationStatus(c.Request.Context(), req.Email); err != nil {
+        s.Logger.Error("Failed to update user email verification status", "email", req.Email, "error", err.Error())
+        utils.RespondWithError(c, http.StatusInternalServerError, "Error updating user verification status")
+        return
+    }
 
 	// Reset the attempt count on successful verification
 	s.resetAttemptCount(c.Request.Context(), req.Email)
 
-	utils.RespondWithSuccess(c, http.StatusOK, "Code verified successfully", nil)
+	// Generate a token for the verified user
+	accessToken, err := utils.GenerateAccessToken(req.Email, s.Config.Authentication.JWTSecret)
+	if err != nil {
+		s.Logger.Error("Failed to generate access token", "error", err.Error())
+		utils.RespondWithError(c, http.StatusInternalServerError, "Failed to generate access token")
+		return
+	}
+
+	refreshToken, err := utils.GenerateRefreshToken(req.Email, s.Config.Authentication.JWTSecret)
+	if err != nil {
+		s.Logger.Error("Failed to generate refresh token", "error", err.Error())
+		utils.RespondWithError(c, http.StatusInternalServerError, "Failed to generate refresh token")
+		return
+	}
+
+	// Save the refresh token in the database
+	if err := s.SaveRefreshToken(c.Request.Context(), req.Email, refreshToken); err != nil {
+		s.Logger.Error("Failed to save refresh token", "email", req.Email, "error", err.Error())
+		utils.RespondWithError(c, http.StatusInternalServerError, "Error saving refresh token")
+		return
+	}
+	// Respond with the generated tokens
+	utils.RespondWithSuccess(c, http.StatusOK, "Code verified successfully", gin.H{
+		"accessToken":  accessToken,
+		"refreshToken": refreshToken,
+	})
 }
 
 func validateRequest(req modelApi.RequestVerifyCode) error {
@@ -120,4 +150,11 @@ func (s *VerifyCodeServiceContext) resetAttemptCount(ctx context.Context, email 
 	collection := s.DB.Database(s.Config.Database.Name).Collection(string(config.AuthUserCollection))
 	update := bson.M{"$set": bson.M{"attemptCount": 0, "lastAttemptTime": time.Time{}}}
 	_, _ = collection.UpdateOne(ctx, bson.M{"email": email}, update)
+}
+
+func (s *VerifyCodeServiceContext) SaveRefreshToken(ctx context.Context, email, refreshToken string) error {
+	collection := s.DB.Database(s.Config.Database.Name).Collection(string(config.AuthUserCollection))
+	update := bson.M{"$set": bson.M{"refreshToken": refreshToken}}
+	_, err := collection.UpdateOne(ctx, bson.M{"email": email}, update)
+	return err
 }

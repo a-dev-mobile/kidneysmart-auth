@@ -16,11 +16,12 @@ import (
 
 // Config represents the entire configuration as structured in YAML.
 type Config struct {
-	Environment      Environment    `yaml:"environment"`
-	Logging          LoggingConfig  `yaml:"logging"`
-	ClientConnection ClientConfig   `yaml:"clientConnectionSettings"`
-	ExternalService  ExternalConfig `yaml:"externalServiceIntegrations"`
-	Database         DatabaseConfig `yaml:"database"`
+	Environment      Environment          `yaml:"environment"`
+	Logging          LoggingConfig        `yaml:"logging"`
+	ClientConnection ClientConfig         `yaml:"clientConnectionSettings"`
+	ExternalService  ExternalConfig       `yaml:"externalServiceIntegrations"`
+	Database         DatabaseConfig       `yaml:"database"`
+	Authentication   AuthenticationConfig `yaml:"authentication"`
 }
 
 type LoggingConfig struct {
@@ -55,7 +56,9 @@ type GrpcConfig struct {
 	Port                 string `yaml:"port"`
 	MaxConcurrentStreams int    `yaml:"maxConcurrentStreams"`
 }
-
+type AuthenticationConfig struct {
+	JWTSecret string `yaml:"JWTSecret"`
+}
 type DatabaseConfig struct {
 	User              string                    `yaml:"user"`
 	Password          string                    `yaml:"password"`
