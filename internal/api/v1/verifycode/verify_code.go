@@ -46,7 +46,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	}
 
 	if err := validateRequest(req); err != nil {
-		s.Logger.Info("Validation failed", slog.String("error", err.Error()))
+		s.Logger.Info("Validation failed", "error", err.Error())
 		utils.RespondWithError(c, http.StatusBadRequest, err.Error())
 		return
 	}

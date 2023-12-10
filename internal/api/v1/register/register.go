@@ -36,7 +36,7 @@ func (s *RegisterServiceContext) RegisterUserHandler(c *gin.Context) {
 	var reqRegister model.RequestRegister
 
 	if err := c.ShouldBindJSON(&reqRegister); err != nil {
-		s.Logger.Error("Failed to bind JSON", slog.String("error", err.Error()))
+		s.Logger.Error("Failed to bind JSON", "error", err.Error())
 		utils.RespondWithError(c, http.StatusBadRequest, "Invalid request body")
 		return
 	}
@@ -69,10 +69,12 @@ func (s *RegisterServiceContext) RegisterUserHandler(c *gin.Context) {
 		return
 	}
 
-	// Send the code via email
-	if err := sendConfirmationEmail(s.EmailClient, reqRegister.Email, code); err != nil {
-		s.Logger.Warn("Failed to send email", slog.String("email", reqRegister.Email), slog.String("error", err.Error()))
-	}
+// Send the code via email
+if err := sendConfirmationEmail(s.EmailClient, reqRegister.Email, code); err != nil {
+    s.Logger.Warn("Failed to send email", "email", reqRegister.Email, "error", err.Error())
+    utils.RespondWithError(c, http.StatusInternalServerError, "User registered but failed to send confirmation email")
+    return
+}
 
 	utils.RespondWithSuccess(c, http.StatusOK, "User registered successfully", nil)
 }
@@ -94,7 +96,7 @@ func createUser(ctx context.Context, collection *mongo.Collection, email, code s
 }
 
 func sendConfirmationEmail(client *emailclient.EmailClient, email string, code string) error {
-	subject := "Your verification code"
-	body := fmt.Sprintf("Your verification code is: %s\nPlease use this code to complete your registration.", code)
+	subject :=  fmt.Sprintf("Your verification code is: %s", code)
+	body := fmt.Sprintf("%s \nPlease use this code to complete your registration.", code)
 	return client.SendEmail(email, subject, "KidneySmart Team", "hello@wayofdt.com", body)
 }

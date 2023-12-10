@@ -52,7 +52,7 @@ func main() {
 	}
 	defer smtpConn.Close()
 
-	emailClient := emailclient.NewEmailClient(smtpConn)
+	emailClient := emailclient.NewEmailClient(smtpConn,lg)
 
 	// Set up your server's routes and handlers
 	router := setupRouter(cfg, lg)

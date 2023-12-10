@@ -2,23 +2,25 @@ package emailclient
 
 import (
 	"context"
-	"log"
 
 	pb "github.com/a-dev-mobile/kidneysmart-auth/proto"
+	"golang.org/x/exp/slog"
 	"google.golang.org/grpc"
 )
 
 type EmailClient struct {
 	client pb.EmailSenderApiClient
+	Logger *slog.Logger
 }
 
-func NewEmailClient(conn *grpc.ClientConn) *EmailClient {
+func NewEmailClient(conn *grpc.ClientConn, lg *slog.Logger) *EmailClient {
 	return &EmailClient{
 		client: pb.NewEmailSenderApiClient(conn),
+		Logger: lg,
 	}
 }
 
-func (e *EmailClient) SendEmail(recipient, subject, fromName, fromEmail, body string) error {
+func (s *EmailClient) SendEmail(recipient, subject, fromName, fromEmail, body string) error {
 	req := &pb.EmailSenderRequest{
 		RecipientEmail: recipient,
 		Subject:        subject,
@@ -27,9 +29,9 @@ func (e *EmailClient) SendEmail(recipient, subject, fromName, fromEmail, body st
 		Body:           body,
 	}
 
-	_, err := e.client.SendEmail(context.Background(), req)
+	_, err := s.client.SendEmail(context.Background(), req)
 	if err != nil {
-		log.Printf("could not send email: %v", err)
+		s.Logger.Warn("could not send email:","error", err)
 		return err
 	}
 
