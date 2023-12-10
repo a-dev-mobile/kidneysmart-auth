@@ -56,8 +56,11 @@ type GrpcConfig struct {
 	Port                 string `yaml:"port"`
 	MaxConcurrentStreams int    `yaml:"maxConcurrentStreams"`
 }
+
 type AuthenticationConfig struct {
-	JWTSecret string `yaml:"JWTSecret"`
+	JWTSecret              string `yaml:"JWTSecret"`
+	AccessTokenExpiryHours int    `yaml:"accessTokenExpiryHours"` 
+	RefreshTokenExpiryDays int    `yaml:"refreshTokenExpiryDays"` 
 }
 type DatabaseConfig struct {
 	User              string                    `yaml:"user"`

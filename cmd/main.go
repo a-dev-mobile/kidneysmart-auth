@@ -13,9 +13,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/a-dev-mobile/kidneysmart-auth/docs"
 	"github.com/a-dev-mobile/kidneysmart-auth/database/mongo"
-	"github.com/a-dev-mobile/kidneysmart-auth/pkg/emailclient"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/config"
+	"github.com/a-dev-mobile/kidneysmart-auth/pkg/emailclient"
 
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/register"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/verifycode"
@@ -30,6 +31,9 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
 )
 
 func main() {
@@ -63,9 +67,18 @@ func main() {
 	//
 	hctxVerifyCode := verifycode.NewVerifyCodeServiceContext(db, lg, cfg)
 	router.POST("kidneysmart-auth/v1/verify-code", hctxVerifyCode.VerifyCodeHandler)
-
+	
 	lg.Info("Environment used", ".env", cfg.Environment)
 	// lg.Debug("Rest Server starting", "config_json", cfg)
+	// docs
+	docs.SwaggerInfo.Title = "Kidneysmart Auth API"
+	docs.SwaggerInfo.Description = "Authentication in the KidneySmart application"
+	docs.SwaggerInfo.Host = "wayofdt.com"
+	
+	docs.SwaggerInfo.BasePath = "/kidneysmart-auth/v1/"
+	docs.SwaggerInfo.Version = "v1"
+	router.GET("/kidneysmart-auth/v1/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+
 
 	startServer(cfg, router, lg)
 }

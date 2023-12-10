@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	modelApi "github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/verifycode/model"
+	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/verifycode/model"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/config"
-	modelDb "github.com/a-dev-mobile/kidneysmart-auth/internal/model/db"
+	"github.com/a-dev-mobile/kidneysmart-auth/internal/model/db"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -31,92 +31,121 @@ func NewVerifyCodeServiceContext(db *mongo.Client, lg *slog.Logger, cfg *config.
 }
 
 // VerifyCodeHandler handles the verification of the code sent by the user.
+// @Summary Verify User Code
+// @Description Verifies the verification code sent by the user for account verification.
+// @Tags verification
+// @Accept json
+// @Produce json
+// @Param email query string true "Email address of the user"
+// @Param code query string true "Verification code sent to the user's email"
+// @Success 200 {object} model.ResponseSuccessVerifyCode "Verification successful, includes access and refresh tokens"
+// @Failure 400 {object} model.ResponseErrorVerifyCode "Invalid request body or parameters"
+// @Failure 401 {object} model.ResponseErrorVerifyCode "Invalid verification code"
+// @Failure 404 {object} model.ResponseErrorVerifyCode "User not found"
+// @Failure 429 {object} model.ResponseErrorVerifyCode "Too many attempts, please try again later"
+// @Failure 500 {object} model.ResponseErrorVerifyCode "Internal server error"
+// @Router /verifycode [post]
 func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
-	var req modelApi.RequestVerifyCode
+	var req model.RequestVerifyCode
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		s.Logger.Error("Failed to bind JSON", "error", err.Error())
-		utils.RespondWithError(c, http.StatusBadRequest, "Invalid request body")
+		c.JSON(http.StatusBadRequest, model.ResponseErrorVerifyCode{Message: "Invalid request body"})
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		utils.RespondWithError(c, http.StatusBadRequest, "Invalid request parameters")
+		c.JSON(http.StatusBadRequest, model.ResponseErrorVerifyCode{Message: "Invalid request parameters"})
+
 		return
 	}
 
 	if err := validateRequest(req); err != nil {
 		s.Logger.Info("Validation failed", "error", err.Error())
-		utils.RespondWithError(c, http.StatusBadRequest, err.Error())
+		c.JSON(http.StatusBadRequest, model.ResponseErrorVerifyCode{Message: err.Error()})
+
 		return
 	}
 
 	dbAuthUser, err := s.fetchUser(c.Request.Context(), req.Email)
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		utils.RespondWithError(c, http.StatusNotFound, "User not found")
+		c.JSON(http.StatusNotFound, model.ResponseErrorVerifyCode{Message: "User not found"})
+
 		return
 	} else if err != nil {
 		s.Logger.Error("Failed to retrieve user", "email", req.Email, "error", err.Error())
-		utils.RespondWithError(c, http.StatusInternalServerError, "Error retrieving user")
+		c.JSON(http.StatusInternalServerError, model.ResponseErrorVerifyCode{Message: "Error retrieving user"})
 		return
 	}
 	// Check if the email is already verified
 	if dbAuthUser.EmailVerified {
-		utils.RespondWithSuccess(c, http.StatusOK, "Email is already verified", nil)
+
+		c.JSON(http.StatusOK, model.ResponseErrorVerifyCode{Message: "Email is already verified"})
 		return
 	}
 	// Check if the user has exceeded the maximum number of attempts
 	const MaxAttempts = 5
 	if dbAuthUser.AttemptCount >= MaxAttempts && time.Since(dbAuthUser.LastAttemptTime).Minutes() < 15 {
-		utils.RespondWithError(c, http.StatusTooManyRequests, "Too many attempts, please try again later")
+
+		c.JSON(http.StatusTooManyRequests, model.ResponseErrorVerifyCode{Message: "Too many attempts, please try again later"})
 		return
 	}
 
 	if dbAuthUser.Code != req.Code {
 		s.incrementAttemptCount(c.Request.Context(), req.Email, dbAuthUser.AttemptCount)
-		utils.RespondWithError(c, http.StatusUnauthorized, "Invalid code")
+
+		c.JSON(http.StatusUnauthorized, model.ResponseErrorVerifyCode{Message: "Invalid code"})
 		return
 	}
-    // Update the user's email verification status in the database
-    if err := s.UpdateEmailVerificationStatus(c.Request.Context(), req.Email); err != nil {
-        s.Logger.Error("Failed to update user email verification status", "email", req.Email, "error", err.Error())
-        utils.RespondWithError(c, http.StatusInternalServerError, "Error updating user verification status")
-        return
-    }
+	// Update the user's email verification status in the database
+	if err := s.UpdateEmailVerificationStatus(c.Request.Context(), req.Email); err != nil {
+		s.Logger.Error("Failed to update user email verification status", "email", req.Email, "error", err.Error())
+
+		c.JSON(http.StatusInternalServerError, model.ResponseErrorVerifyCode{Message: "Error updating user verification status"})
+		return
+	}
 
 	// Reset the attempt count on successful verification
 	s.resetAttemptCount(c.Request.Context(), req.Email)
 
 	// Generate a token for the verified user
-	accessToken, err := utils.GenerateAccessToken(req.Email, s.Config.Authentication.JWTSecret)
+	accessToken, err := utils.GenerateAccessToken(req.Email, s.Config.Authentication.JWTSecret, s.Config.Authentication.AccessTokenExpiryHours)
 	if err != nil {
 		s.Logger.Error("Failed to generate access token", "error", err.Error())
-		utils.RespondWithError(c, http.StatusInternalServerError, "Failed to generate access token")
+
+		c.JSON(http.StatusInternalServerError, model.ResponseErrorVerifyCode{Message: "Failed to generate access token"})
 		return
 	}
 
-	refreshToken, err := utils.GenerateRefreshToken(req.Email, s.Config.Authentication.JWTSecret)
+	refreshToken, err := utils.GenerateRefreshToken(req.Email, s.Config.Authentication.JWTSecret, s.Config.Authentication.RefreshTokenExpiryDays)
 	if err != nil {
 		s.Logger.Error("Failed to generate refresh token", "error", err.Error())
-		utils.RespondWithError(c, http.StatusInternalServerError, "Failed to generate refresh token")
+
+		c.JSON(http.StatusInternalServerError, model.ResponseErrorVerifyCode{Message: "Failed to generate refresh token"})
 		return
 	}
 
 	// Save the refresh token in the database
 	if err := s.SaveRefreshToken(c.Request.Context(), req.Email, refreshToken); err != nil {
 		s.Logger.Error("Failed to save refresh token", "email", req.Email, "error", err.Error())
-		utils.RespondWithError(c, http.StatusInternalServerError, "Error saving refresh token")
+
+		c.JSON(http.StatusInternalServerError, model.ResponseErrorVerifyCode{Message: "Error saving refresh token"})
 		return
 	}
-	// Respond with the generated tokens
-	utils.RespondWithSuccess(c, http.StatusOK, "Code verified successfully", gin.H{
-		"accessToken":  accessToken,
-		"refreshToken": refreshToken,
-	})
+	// Generate the success response
+	expiresIn := time.Now().Add(time.Duration(s.Config.Authentication.AccessTokenExpiryHours) * time.Hour)
+	successResponse := model.ResponseSuccessVerifyCode{
+		Message:      "Verification successful",
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    expiresIn,
+	}
+
+	c.JSON(http.StatusOK, successResponse)
 }
 
-func validateRequest(req modelApi.RequestVerifyCode) error {
+func validateRequest(req model.RequestVerifyCode) error {
 	if !utils.ValidateEmail(req.Email) {
 		return errors.New("invalid email format")
 	}
@@ -126,10 +155,10 @@ func validateRequest(req modelApi.RequestVerifyCode) error {
 	return nil
 }
 
-func (s *VerifyCodeServiceContext) fetchUser(ctx context.Context, email string) (*modelDb.AuthUser, error) {
+func (s *VerifyCodeServiceContext) fetchUser(ctx context.Context, email string) (*db.AuthUser, error) {
 	authUserCollection := s.Config.Database.Collections[string(config.AuthUserCollection)]
 	collection := s.DB.Database(s.Config.Database.Name).Collection(string(authUserCollection))
-	var dbAuthUser modelDb.AuthUser
+	var dbAuthUser db.AuthUser
 	err := collection.FindOne(ctx, bson.M{"email": email}).Decode(&dbAuthUser)
 	return &dbAuthUser, err
 }

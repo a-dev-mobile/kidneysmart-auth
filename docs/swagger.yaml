@@ -1,0 +1,122 @@
+definitions:
+  model.RequestRegister:
+    properties:
+      email:
+        description: '@Required'
+        type: string
+    required:
+    - email
+    type: object
+  model.ResponseErrorVerifyCode:
+    properties:
+      message:
+        description: Message provides information about the response.
+        type: string
+    type: object
+  model.ResponseRegister:
+    description: The response payload returned after a user registers.
+    properties:
+      message:
+        description: |-
+          Message provides information about the registration outcome.
+          @Required This field must be provided in the response.
+        type: string
+    type: object
+  model.ResponseSuccessVerifyCode:
+    properties:
+      accessToken:
+        type: string
+      expiresIn:
+        type: string
+      message:
+        type: string
+      refreshToken:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: This endpoint registers a new user by their email address and sends
+        a verification code to that email.
+      parameters:
+      - description: Registration Info
+        in: body
+        name: RequestRegister
+        required: true
+        schema:
+          $ref: '#/definitions/model.RequestRegister'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User registered successfully, verification code sent
+          schema:
+            $ref: '#/definitions/model.ResponseRegister'
+        "400":
+          description: Invalid request body or parameters, such as incorrect email
+            format
+          schema:
+            $ref: '#/definitions/model.ResponseRegister'
+        "409":
+          description: User already exists with the provided email address
+          schema:
+            $ref: '#/definitions/model.ResponseRegister'
+        "500":
+          description: Internal server error, such as failure in user creation or
+            sending email
+          schema:
+            $ref: '#/definitions/model.ResponseRegister'
+      summary: Register a new user
+      tags:
+      - user
+  /verifycode:
+    post:
+      consumes:
+      - application/json
+      description: Verifies the verification code sent by the user for account verification.
+      parameters:
+      - description: Email address of the user
+        in: query
+        name: email
+        required: true
+        type: string
+      - description: Verification code sent to the user's email
+        in: query
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Verification successful, includes access and refresh tokens
+          schema:
+            $ref: '#/definitions/model.ResponseSuccessVerifyCode'
+        "400":
+          description: Invalid request body or parameters
+          schema:
+            $ref: '#/definitions/model.ResponseErrorVerifyCode'
+        "401":
+          description: Invalid verification code
+          schema:
+            $ref: '#/definitions/model.ResponseErrorVerifyCode'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/model.ResponseErrorVerifyCode'
+        "429":
+          description: Too many attempts, please try again later
+          schema:
+            $ref: '#/definitions/model.ResponseErrorVerifyCode'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/model.ResponseErrorVerifyCode'
+      summary: Verify User Code
+      tags:
+      - verification
+swagger: "2.0"

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/a-dev-mobile/kidneysmart-auth/pkg/emailclient"
-	"github.com/a-dev-mobile/kidneysmart-auth/internal/config"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/register/model"
+	"github.com/a-dev-mobile/kidneysmart-auth/internal/config"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/utils"
+	"github.com/a-dev-mobile/kidneysmart-auth/pkg/emailclient"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -32,22 +32,34 @@ func NewRegisterServiceContext(db *mongo.Client, lg *slog.Logger, cfg *config.Co
 	}
 }
 
+// RegisterUserHandler registers a new user.
+// @Summary Register a new user
+// @Description This endpoint registers a new user by their email address and sends a verification code to that email.
+// @Tags user
+// @Accept json
+// @Produce json
+// @Param RequestRegister body model.RequestRegister true "Registration Info"
+// @Success 200 {object} model.ResponseRegister "User registered successfully, verification code sent"
+// @Failure 400 {object} model.ResponseRegister "Invalid request body or parameters, such as incorrect email format"
+// @Failure 409 {object} model.ResponseRegister "User already exists with the provided email address"
+// @Failure 500 {object} model.ResponseRegister "Internal server error, such as failure in user creation or sending email"
+// @Router /register [post]
 func (s *RegisterServiceContext) RegisterUserHandler(c *gin.Context) {
 	var reqRegister model.RequestRegister
 
 	if err := c.ShouldBindJSON(&reqRegister); err != nil {
 		s.Logger.Error("Failed to bind JSON", "error", err.Error())
-		utils.RespondWithError(c, http.StatusBadRequest, "Invalid request body")
+		c.JSON(http.StatusBadRequest, model.ResponseRegister{Message: "Invalid request body"})
 		return
 	}
 
 	if err := reqRegister.Validate(); err != nil {
-		utils.RespondWithError(c, http.StatusBadRequest, "Invalid request parameters")
+		c.JSON(http.StatusBadRequest, model.ResponseRegister{Message: "Invalid request parameters"})
 		return
 	}
 
 	if !utils.ValidateEmail(reqRegister.Email) {
-		utils.RespondWithError(c, http.StatusBadRequest, "Invalid email format")
+		c.JSON(http.StatusBadRequest, model.ResponseRegister{Message: "Invalid email format"})
 		return
 	}
 
@@ -59,24 +71,24 @@ func (s *RegisterServiceContext) RegisterUserHandler(c *gin.Context) {
 	code := utils.GenerateRandomCode()
 	// Check if user already exists and create new user with the code
 	if userExists(ctx, collection, reqRegister.Email) {
-		utils.RespondWithError(c, http.StatusConflict, "User already exists")
+		c.JSON(http.StatusConflict, model.ResponseRegister{Message: "User already exists"})
 		return
 	}
 
 	if err := createUser(ctx, collection, reqRegister.Email, code); err != nil {
 		s.Logger.Error("Failed to create user", "email", reqRegister.Email, "error", err.Error())
-		utils.RespondWithError(c, http.StatusInternalServerError, "Failed to create user")
+		c.JSON(http.StatusInternalServerError, model.ResponseRegister{Message: "Failed to create user"})
 		return
 	}
 
-// Send the code via email
-if err := sendConfirmationEmail(s.EmailClient, reqRegister.Email, code); err != nil {
-    s.Logger.Warn("Failed to send email", "email", reqRegister.Email, "error", err.Error())
-    utils.RespondWithError(c, http.StatusInternalServerError, "User registered but failed to send confirmation email")
-    return
-}
+	// Send the code via email
+	if err := sendConfirmationEmail(s.EmailClient, reqRegister.Email, code); err != nil {
+		s.Logger.Warn("Failed to send email", "email", reqRegister.Email, "error", err.Error())
+		c.JSON(http.StatusInternalServerError, model.ResponseRegister{Message: "User registered but failed to send confirmation email"})
+		return
+	}
 
-	utils.RespondWithSuccess(c, http.StatusOK, "User registered successfully", nil)
+	c.JSON(http.StatusOK, model.ResponseRegister{Message: "User registered successfully"})
 }
 
 func userExists(ctx context.Context, collection *mongo.Collection, email string) bool {
@@ -96,7 +108,7 @@ func createUser(ctx context.Context, collection *mongo.Collection, email, code s
 }
 
 func sendConfirmationEmail(client *emailclient.EmailClient, email string, code string) error {
-	subject :=  fmt.Sprintf("Your verification code is: %s", code)
+	subject := fmt.Sprintf("Your verification code is: %s", code)
 	body := fmt.Sprintf("%s \nPlease use this code to complete your registration.", code)
 	return client.SendEmail(email, subject, "KidneySmart Team", "hello@wayofdt.com", body)
 }

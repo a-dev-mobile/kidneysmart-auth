@@ -6,16 +6,11 @@ import (
     "github.com/golang-jwt/jwt/v5"
 )
 
-const (
-    AccessTokenExpiryDuration  = 15 * time.Minute  
-    RefreshTokenExpiryDuration = 72 * time.Hour   
-)
-
 // GenerateAccessToken creates a JWT access token for a verified user.
-func GenerateAccessToken(email, jwtSecret string) (string, error) {
+func GenerateAccessToken(email, jwtSecret string, accessTokenExpiryHours int) (string, error) {
     claims := jwt.MapClaims{
         "email": email,
-        "exp":   time.Now().Add(AccessTokenExpiryDuration).Unix(),
+        "exp":   time.Now().Add(time.Duration(accessTokenExpiryHours) * time.Hour).Unix(),
     }
 
     token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -24,10 +19,10 @@ func GenerateAccessToken(email, jwtSecret string) (string, error) {
 }
 
 // GenerateRefreshToken creates a JWT refresh token for a verified user.
-func GenerateRefreshToken(email, jwtSecret string) (string, error) {
+func GenerateRefreshToken(email, jwtSecret string, refreshTokenExpiryDays int) (string, error) {
     claims := jwt.MapClaims{
         "email": email,
-        "exp":   time.Now().Add(RefreshTokenExpiryDuration).Unix(),
+        "exp":   time.Now().Add(time.Duration(refreshTokenExpiryDays) * 24 * time.Hour).Unix(),
     }
 
     token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
