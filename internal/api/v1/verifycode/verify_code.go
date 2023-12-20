@@ -39,30 +39,31 @@ func NewVerifyCodeServiceContext(db *mongo.Client, lg *slog.Logger, cfg *config.
 // @Param email query string true "Email address of the user"
 // @Param code query string true "Verification code sent to the user's email"
 // @Success 200 {object} model.ResponseSuccessVerifyCode "Verification successful, includes access and refresh tokens"
-// @Failure 400 {object} model.ResponseErrorVerifyCode "Invalid request body or parameters"
-// @Failure 401 {object} model.ResponseErrorVerifyCode "Invalid verification code"
-// @Failure 404 {object} model.ResponseErrorVerifyCode "User not found"
-// @Failure 429 {object} model.ResponseErrorVerifyCode "Too many attempts, please try again later"
-// @Failure 500 {object} model.ResponseErrorVerifyCode "Internal server error"
+// @Success 208 {object} model.ResponseStatusVerifyCode "Email is already verified"
+// @Failure 400 {object} model.ResponseStatusVerifyCode "Invalid request body or parameters"
+// @Failure 401 {object} model.ResponseStatusVerifyCode "Invalid verification code"
+// @Failure 404 {object} model.ResponseStatusVerifyCode "User not found"
+// @Failure 429 {object} model.ResponseStatusVerifyCode "Too many attempts, please try again later"
+// @Failure 500 {object} model.ResponseStatusVerifyCode "Internal server error"
 // @Router /verifycode [post]
 func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	var req model.RequestVerifyCode
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		s.Logger.Error("Failed to bind JSON", "error", err.Error())
-		c.JSON(http.StatusBadRequest, model.ResponseErrorVerifyCode{Message: "Invalid request body"})
+		c.JSON(http.StatusBadRequest, model.ResponseStatusVerifyCode{Message: "Invalid request body"})
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		c.JSON(http.StatusBadRequest, model.ResponseErrorVerifyCode{Message: "Invalid request parameters"})
+		c.JSON(http.StatusBadRequest, model.ResponseStatusVerifyCode{Message: "Invalid request parameters"})
 
 		return
 	}
 
 	if err := validateRequest(req); err != nil {
 		s.Logger.Info("Validation failed", "error", err.Error())
-		c.JSON(http.StatusBadRequest, model.ResponseErrorVerifyCode{Message: err.Error()})
+		c.JSON(http.StatusBadRequest, model.ResponseStatusVerifyCode{Message: err.Error()})
 
 		return
 	}
@@ -70,39 +71,39 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	dbAuthUser, err := s.fetchUser(c.Request.Context(), req.Email)
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		c.JSON(http.StatusNotFound, model.ResponseErrorVerifyCode{Message: "User not found"})
+		c.JSON(http.StatusNotFound, model.ResponseStatusVerifyCode{Message: "User not found"})
 
 		return
 	} else if err != nil {
 		s.Logger.Error("Failed to retrieve user", "email", req.Email, "error", err.Error())
-		c.JSON(http.StatusInternalServerError, model.ResponseErrorVerifyCode{Message: "Error retrieving user"})
+		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Error retrieving user"})
 		return
 	}
 	// Check if the email is already verified
 	if dbAuthUser.EmailVerified {
 
-		c.JSON(http.StatusOK, model.ResponseErrorVerifyCode{Message: "Email is already verified"})
+		c.JSON(http.StatusAlreadyReported, model.ResponseStatusVerifyCode{Message: "Email is already verified"})
 		return
 	}
 	// Check if the user has exceeded the maximum number of attempts
 	const MaxAttempts = 5
 	if dbAuthUser.AttemptCount >= MaxAttempts && time.Since(dbAuthUser.LastAttemptTime).Minutes() < 15 {
 
-		c.JSON(http.StatusTooManyRequests, model.ResponseErrorVerifyCode{Message: "Too many attempts, please try again later"})
+		c.JSON(http.StatusTooManyRequests, model.ResponseStatusVerifyCode{Message: "Too many attempts, please try again later"})
 		return
 	}
 
 	if dbAuthUser.Code != req.Code {
 		s.incrementAttemptCount(c.Request.Context(), req.Email, dbAuthUser.AttemptCount)
 
-		c.JSON(http.StatusUnauthorized, model.ResponseErrorVerifyCode{Message: "Invalid code"})
+		c.JSON(http.StatusUnauthorized, model.ResponseStatusVerifyCode{Message: "Invalid code"})
 		return
 	}
 	// Update the user's email verification status in the database
 	if err := s.UpdateEmailVerificationStatus(c.Request.Context(), req.Email); err != nil {
 		s.Logger.Error("Failed to update user email verification status", "email", req.Email, "error", err.Error())
 
-		c.JSON(http.StatusInternalServerError, model.ResponseErrorVerifyCode{Message: "Error updating user verification status"})
+		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Error updating user verification status"})
 		return
 	}
 
@@ -114,7 +115,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("Failed to generate access token", "error", err.Error())
 
-		c.JSON(http.StatusInternalServerError, model.ResponseErrorVerifyCode{Message: "Failed to generate access token"})
+		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Failed to generate access token"})
 		return
 	}
 
@@ -122,7 +123,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("Failed to generate refresh token", "error", err.Error())
 
-		c.JSON(http.StatusInternalServerError, model.ResponseErrorVerifyCode{Message: "Failed to generate refresh token"})
+		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Failed to generate refresh token"})
 		return
 	}
 
@@ -130,7 +131,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	if err := s.SaveRefreshToken(c.Request.Context(), req.Email, refreshToken); err != nil {
 		s.Logger.Error("Failed to save refresh token", "email", req.Email, "error", err.Error())
 
-		c.JSON(http.StatusInternalServerError, model.ResponseErrorVerifyCode{Message: "Error saving refresh token"})
+		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Error saving refresh token"})
 		return
 	}
 	// Generate the success response

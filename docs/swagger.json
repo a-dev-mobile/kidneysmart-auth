@@ -92,34 +92,40 @@
                             "$ref": "#/definitions/model.ResponseSuccessVerifyCode"
                         }
                     },
+                    "208": {
+                        "description": "Email is already verified",
+                        "schema": {
+                            "$ref": "#/definitions/model.ResponseStatusVerifyCode"
+                        }
+                    },
                     "400": {
                         "description": "Invalid request body or parameters",
                         "schema": {
-                            "$ref": "#/definitions/model.ResponseErrorVerifyCode"
+                            "$ref": "#/definitions/model.ResponseStatusVerifyCode"
                         }
                     },
                     "401": {
                         "description": "Invalid verification code",
                         "schema": {
-                            "$ref": "#/definitions/model.ResponseErrorVerifyCode"
+                            "$ref": "#/definitions/model.ResponseStatusVerifyCode"
                         }
                     },
                     "404": {
                         "description": "User not found",
                         "schema": {
-                            "$ref": "#/definitions/model.ResponseErrorVerifyCode"
+                            "$ref": "#/definitions/model.ResponseStatusVerifyCode"
                         }
                     },
                     "429": {
                         "description": "Too many attempts, please try again later",
                         "schema": {
-                            "$ref": "#/definitions/model.ResponseErrorVerifyCode"
+                            "$ref": "#/definitions/model.ResponseStatusVerifyCode"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/model.ResponseErrorVerifyCode"
+                            "$ref": "#/definitions/model.ResponseStatusVerifyCode"
                         }
                     }
                 }
@@ -139,21 +145,21 @@
                 }
             }
         },
-        "model.ResponseErrorVerifyCode": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "description": "Message provides information about the response.",
-                    "type": "string"
-                }
-            }
-        },
         "model.ResponseRegister": {
             "description": "The response payload returned after a user registers.",
             "type": "object",
             "properties": {
                 "message": {
                     "description": "Message provides information about the registration outcome.\n@Required This field must be provided in the response.",
+                    "type": "string"
+                }
+            }
+        },
+        "model.ResponseStatusVerifyCode": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "description": "Message provides information about the response.",
                     "type": "string"
                 }
             }
