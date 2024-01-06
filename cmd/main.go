@@ -21,6 +21,7 @@ import (
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/password"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/register"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/verifycode"
+	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/refresh_token"
 
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/logging"
 
@@ -68,6 +69,13 @@ func main() {
 	hctxVerifyCode := verifycode.NewVerifyCodeServiceContext(db, lg, cfg)
 	router.POST("kidneysmart-auth/v1/verify-code", hctxVerifyCode.VerifyCodeHandler)
 	//
+
+	 hctxRefreshToken := refreshtoken.NewRefreshTokenServiceContext(db, lg, cfg)
+	 router.POST("kidneysmart-auth/v1/refresh-token", hctxRefreshToken.RefreshTokenHandler)
+	
+
+
+	// 
 	hctxPassword := password.NewPasswordServiceContext(db, lg, cfg)
 	// Применение AuthMiddleware к endpoint set-password
 	authMiddleware := middleware.AuthMiddleware(cfg.Authentication.JWTSecret)

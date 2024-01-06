@@ -29,5 +29,5 @@ type CollectionName string
 
 const (
 	AuthUserCollection   CollectionName = "authUser"
-	AuthTokensCollection CollectionName = "authTokens"
+	AuthTokenCollection CollectionName = "authToken"
 )

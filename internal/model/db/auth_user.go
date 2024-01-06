@@ -15,6 +15,5 @@ type AuthUser struct {
 	EmailVerified   bool      `json:"emailVerified" bson:"emailVerified"`
 	AttemptCount    int       `json:"attemptCount" bson:"attemptCount"`
 	LastAttemptTime time.Time `json:"lastAttemptTime" bson:"lastAttemptTime"`
-	RefreshToken    string    `json:"refreshToken" bson:"refreshToken"`
 	Password        string    `json:"password" bson:"password"`
 }

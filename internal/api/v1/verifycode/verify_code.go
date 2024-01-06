@@ -12,6 +12,7 @@ import (
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/exp/slog"
 )
@@ -114,7 +115,6 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	accessToken, err := utils.GenerateAccessToken(dbAuthUser.ID.Hex(), s.Config.Authentication.JWTSecret, s.Config.Authentication.AccessTokenExpiryHours)
 	if err != nil {
 		s.Logger.Error("Failed to generate access token", "error", err.Error())
-
 		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Failed to generate access token"})
 		return
 	}
@@ -122,20 +122,18 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	refreshToken, err := utils.GenerateRefreshToken(dbAuthUser.ID.Hex(), s.Config.Authentication.JWTSecret, s.Config.Authentication.RefreshTokenExpiryDays)
 	if err != nil {
 		s.Logger.Error("Failed to generate refresh token", "error", err.Error())
-
 		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Failed to generate refresh token"})
 		return
 	}
 
 	// Save the refresh token in the database
-	if err := s.SaveRefreshToken(c.Request.Context(), req.Email, refreshToken); err != nil {
-		s.Logger.Error("Failed to save refresh token", "email", req.Email, "error", err.Error())
-
+	if err := s.SaveRefreshToken(c.Request.Context(), dbAuthUser.ID, refreshToken); err != nil {
+		s.Logger.Error("Failed to save refresh token", "userID", dbAuthUser.ID.Hex(), "error", err.Error())
 		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Error saving refresh token"})
 		return
 	}
 	// Generate the success response
-	expiresIn := time.Now().Add(time.Duration(s.Config.Authentication.AccessTokenExpiryHours) * time.Hour)
+	expiresIn := utils.CalculateAccessTokenExpiryTime(s.Config.Authentication.AccessTokenExpiryHours)
 	successResponse := model.ResponseSuccessVerifyCode{
 		Message:      "Verification successful",
 		AccessToken:  accessToken,
@@ -182,9 +180,23 @@ func (s *VerifyCodeServiceContext) resetAttemptCount(ctx context.Context, email 
 	_, _ = collection.UpdateOne(ctx, bson.M{"email": email}, update)
 }
 
-func (s *VerifyCodeServiceContext) SaveRefreshToken(ctx context.Context, email, refreshToken string) error {
-	collection := s.DB.Database(s.Config.Database.Name).Collection(string(config.AuthUserCollection))
-	update := bson.M{"$set": bson.M{"refreshToken": refreshToken}}
-	_, err := collection.UpdateOne(ctx, bson.M{"email": email}, update)
+// SaveRefreshToken сохраняет refresh токен в отдельной коллекции AuthToken.
+func (s *VerifyCodeServiceContext) SaveRefreshToken(ctx context.Context, userID primitive.ObjectID, refreshToken string) error {
+	// Название коллекции токенов
+	tokenCollectionName := s.Config.Database.Collections[string(config.AuthTokenCollection)]
+	collection := s.DB.Database(s.Config.Database.Name).Collection(string(tokenCollectionName))
+
+	// Создание объекта AuthToken
+	authToken := db.AuthToken{
+		UserID:       userID,
+		DeviceInfoID: primitive.NilObjectID,
+		Token:        refreshToken,
+		CreatedAt:    time.Now(),
+		ExpiresAt:    utils.CalculateRefreshTokenExpiryTime(s.Config.Authentication.RefreshTokenExpiryDays),
+		IsActive:     true,
+	}
+
+	// Вставка объекта AuthToken в коллекцию
+	_, err := collection.InsertOne(ctx, authToken)
 	return err
 }

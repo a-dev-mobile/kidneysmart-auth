@@ -1,7 +1,6 @@
 package middleware
 
 import (
-
 	"net/http"
 	"strings"
 
@@ -34,7 +33,7 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		}
 
 		// Парсинг и валидация токена
-		userID, err := utils.ParseToken(token, jwtSecret)
+		userID, err := utils.ParseToken(token, jwtSecret, "access")
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": err.Error()})
 			return
