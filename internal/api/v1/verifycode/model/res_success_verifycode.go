@@ -19,4 +19,5 @@ type ResponseSuccessVerifyCode struct {
     // ExpiresIn indicates the expiration time of the access token.
   
     ExpiresIn time.Time `json:"expiresIn"`
+    
 }

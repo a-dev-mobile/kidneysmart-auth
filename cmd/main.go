@@ -19,7 +19,7 @@ import (
 	"github.com/a-dev-mobile/kidneysmart-auth/pkg/emailclient"
 
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/password"
-	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/register"
+	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/login"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/verifycode"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/refresh_token"
 
@@ -62,9 +62,9 @@ func main() {
 	// Set up your server's routes and handlers
 	router := setupRouter(cfg, lg)
 
-	// Create a new context for the Register handler including the email client
-	hctxRegister := register.NewRegisterServiceContext(db, lg, cfg, emailClient)
-	router.POST("kidneysmart-auth/v1/register", hctxRegister.RegisterUserHandler)
+	// Create a new context for the Login handler including the email client
+	hctxLogin := login.NewLoginServiceContext(db, lg, cfg, emailClient)
+	router.POST("kidneysmart-auth/v1/login", hctxLogin.LoginUserHandler)
 	//
 	hctxVerifyCode := verifycode.NewVerifyCodeServiceContext(db, lg, cfg)
 	router.POST("kidneysmart-auth/v1/verify-code", hctxVerifyCode.VerifyCodeHandler)

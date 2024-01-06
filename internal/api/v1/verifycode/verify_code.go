@@ -52,27 +52,37 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		s.Logger.Error("Failed to bind JSON", "error", err.Error())
-		c.JSON(http.StatusBadRequest, model.ResponseStatusVerifyCode{Message: "Invalid request body"})
+		c.JSON(http.StatusBadRequest, model.ResponseStatusVerifyCode{
+			Message: "Invalid request body",
+			Status:  "INVALID_REQUEST_BODY",
+		})
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		c.JSON(http.StatusBadRequest, model.ResponseStatusVerifyCode{Message: "Invalid request parameters"})
-
+		c.JSON(http.StatusBadRequest, model.ResponseStatusVerifyCode{
+			Message: "Invalid request parameters",
+			Status:  "INVALID_PARAMETERS",
+		})
 		return
 	}
 
 	if err := validateRequest(req); err != nil {
 		s.Logger.Info("Validation failed", "error", err.Error())
-		c.JSON(http.StatusBadRequest, model.ResponseStatusVerifyCode{Message: err.Error()})
-
+		c.JSON(http.StatusBadRequest, model.ResponseStatusVerifyCode{
+			Message: err.Error(),
+			Status:  "VALIDATION_FAILED",
+		})
 		return
 	}
 
 	dbAuthUser, err := s.fetchUser(c.Request.Context(), req.Email)
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		c.JSON(http.StatusNotFound, model.ResponseStatusVerifyCode{Message: "User not found"})
+		c.JSON(http.StatusNotFound, model.ResponseStatusVerifyCode{
+			Message: "User not found",
+			Status:  "USER_NOT_FOUND",
+		})
 
 		return
 	} else if err != nil {
@@ -83,7 +93,10 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	// Check if the email is already verified
 	if dbAuthUser.EmailVerified {
 
-		c.JSON(http.StatusAlreadyReported, model.ResponseStatusVerifyCode{Message: "Email is already verified"})
+		c.JSON(http.StatusAlreadyReported, model.ResponseStatusVerifyCode{
+			Message: "Email is already verified",
+			Status:  "EMAIL_ALREADY_VERIFIED",
+		})
 		return
 	}
 	// Check if the user has exceeded the maximum number of attempts
@@ -97,14 +110,19 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	if dbAuthUser.Code != req.Code {
 		s.incrementAttemptCount(c.Request.Context(), req.Email, dbAuthUser.AttemptCount)
 
-		c.JSON(http.StatusUnauthorized, model.ResponseStatusVerifyCode{Message: "Invalid code"})
+		c.JSON(http.StatusUnauthorized, model.ResponseStatusVerifyCode{
+			Message: "Invalid code",
+			Status:  "INVALID_CODE",
+		})
 		return
 	}
 	// Update the user's email verification status in the database
 	if err := s.UpdateEmailVerificationStatus(c.Request.Context(), req.Email); err != nil {
 		s.Logger.Error("Failed to update user email verification status", "email", req.Email, "error", err.Error())
-
-		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Error updating user verification status"})
+		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{
+			Message: "Error updating user verification status",
+			Status:  "UPDATE_VERIFICATION_STATUS_FAILED",
+		})
 		return
 	}
 
@@ -115,21 +133,30 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	accessToken, err := utils.GenerateAccessToken(dbAuthUser.ID.Hex(), s.Config.Authentication.JWTSecret, s.Config.Authentication.AccessTokenExpiryHours)
 	if err != nil {
 		s.Logger.Error("Failed to generate access token", "error", err.Error())
-		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Failed to generate access token"})
+		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{
+			Message: "Failed to generate access token",
+			Status:  "ACCESS_TOKEN_GENERATION_FAILED",
+		})
 		return
 	}
 
 	refreshToken, err := utils.GenerateRefreshToken(dbAuthUser.ID.Hex(), s.Config.Authentication.JWTSecret, s.Config.Authentication.RefreshTokenExpiryDays)
 	if err != nil {
 		s.Logger.Error("Failed to generate refresh token", "error", err.Error())
-		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Failed to generate refresh token"})
+		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{
+			Message: "Failed to generate refresh token",
+			Status:  "REFRESH_TOKEN_GENERATION_FAILED",
+		})
 		return
 	}
 
 	// Save the refresh token in the database
 	if err := s.SaveRefreshToken(c.Request.Context(), dbAuthUser.ID, refreshToken); err != nil {
 		s.Logger.Error("Failed to save refresh token", "userID", dbAuthUser.ID.Hex(), "error", err.Error())
-		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Error saving refresh token"})
+		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{
+			Message: "Error saving refresh token",
+			Status:  "REFRESH_TOKEN_SAVING_FAILED",
+		})
 		return
 	}
 	// Generate the success response
