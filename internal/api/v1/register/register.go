@@ -110,5 +110,5 @@ func createUser(ctx context.Context, collection *mongo.Collection, email, code s
 func sendConfirmationEmail(client *emailclient.EmailClient, email string, code string) error {
 	subject := fmt.Sprintf("Your verification code is: %s", code)
 	body := fmt.Sprintf("%s \nPlease use this code to complete your registration.", code)
-	return client.SendEmail(email, subject, "KidneySmart Team", "hello@wayofdt.com", body)
+	return client.SendEmail(email, subject, "KidneySmart", "hello@wayofdt.com", body)
 }

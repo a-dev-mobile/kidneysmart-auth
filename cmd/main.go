@@ -8,16 +8,17 @@ import (
 	"net/http"
 
 	"os"
-	"strings"
+
 	"time"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/a-dev-mobile/kidneysmart-auth/docs"
 	"github.com/a-dev-mobile/kidneysmart-auth/database/mongo"
+	"github.com/a-dev-mobile/kidneysmart-auth/docs"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/config"
 	"github.com/a-dev-mobile/kidneysmart-auth/pkg/emailclient"
 
+	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/password"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/register"
 	"github.com/a-dev-mobile/kidneysmart-auth/internal/api/v1/verifycode"
 
@@ -29,11 +30,10 @@ import (
 
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -56,7 +56,7 @@ func main() {
 	}
 	defer smtpConn.Close()
 
-	emailClient := emailclient.NewEmailClient(smtpConn,lg)
+	emailClient := emailclient.NewEmailClient(smtpConn, lg)
 
 	// Set up your server's routes and handlers
 	router := setupRouter(cfg, lg)
@@ -67,18 +67,25 @@ func main() {
 	//
 	hctxVerifyCode := verifycode.NewVerifyCodeServiceContext(db, lg, cfg)
 	router.POST("kidneysmart-auth/v1/verify-code", hctxVerifyCode.VerifyCodeHandler)
-	
+	//
+	hctxPassword := password.NewPasswordServiceContext(db, lg, cfg)
+	// Применение AuthMiddleware к endpoint set-password
+	authMiddleware := middleware.AuthMiddleware(cfg.Authentication.JWTSecret)
+	router.POST("kidneysmart-auth/v1/set-password", authMiddleware, hctxPassword.PasswordHandler)
+
+	// hctxLogin := login.NewLoginServiceContext(db, lg, cfg)
+	// router.POST("kidneysmart-auth/v1/login", hctxLogin.LoginUserHandler)
+
 	lg.Info("Environment used", ".env", cfg.Environment)
 	// lg.Debug("Rest Server starting", "config_json", cfg)
 	// docs
 	docs.SwaggerInfo.Title = "Kidneysmart Auth API"
 	docs.SwaggerInfo.Description = "Authentication in the KidneySmart application"
 	docs.SwaggerInfo.Host = "wayofdt.com"
-	
+
 	docs.SwaggerInfo.BasePath = "/kidneysmart-auth/v1/"
 	docs.SwaggerInfo.Version = "v1"
 	router.GET("/kidneysmart-auth/v1/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
-
 
 	startServer(cfg, router, lg)
 }
@@ -147,7 +154,7 @@ func setupRouter(cfg *config.Config, lg *slog.Logger) *gin.Engine {
 	router.Use(gin.Logger())   // Logging middleware от Gin
 	router.Use(middleware.CORSMiddleware(*cfg, lg))
 	router.Use(middleware.TrustProxyHeader())
-
+	router.Use(middleware.LogHeaders())
 	// Adding custom middleware to recover from a panic
 	router.Use(middleware.RecoveryMiddleware(lg))
 
@@ -188,13 +195,4 @@ func gracefulShutdown(srv *http.Server, lg *slog.Logger) {
 
 	lg.Info("Server exiting")
 }
-func LogHeaders() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		currentTime := time.Now().Format("2006/01/02 15:04:05")
-		log.Printf("\n[%s] Headers for %s %s:\n", currentTime, c.Request.Method, c.Request.URL.Path)
-		for k, v := range c.Request.Header {
-			log.Printf("  %s: %s", k, strings.Join(v, ","))
-		}
-		c.Next()
-	}
-}
+

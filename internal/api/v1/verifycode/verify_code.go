@@ -111,7 +111,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	s.resetAttemptCount(c.Request.Context(), req.Email)
 
 	// Generate a token for the verified user
-	accessToken, err := utils.GenerateAccessToken(req.Email, s.Config.Authentication.JWTSecret, s.Config.Authentication.AccessTokenExpiryHours)
+	accessToken, err := utils.GenerateAccessToken(dbAuthUser.ID.Hex(), s.Config.Authentication.JWTSecret, s.Config.Authentication.AccessTokenExpiryHours)
 	if err != nil {
 		s.Logger.Error("Failed to generate access token", "error", err.Error())
 
@@ -119,7 +119,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 		return
 	}
 
-	refreshToken, err := utils.GenerateRefreshToken(req.Email, s.Config.Authentication.JWTSecret, s.Config.Authentication.RefreshTokenExpiryDays)
+	refreshToken, err := utils.GenerateRefreshToken(dbAuthUser.ID.Hex(), s.Config.Authentication.JWTSecret, s.Config.Authentication.RefreshTokenExpiryDays)
 	if err != nil {
 		s.Logger.Error("Failed to generate refresh token", "error", err.Error())
 
