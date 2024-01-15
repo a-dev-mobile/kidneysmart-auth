@@ -85,7 +85,7 @@ func main() {
 	// router.POST("kidneysmart-auth/v1/login", hctxLogin.LoginUserHandler)
 
 	lg.Info("Environment used", ".env", cfg.Environment)
-	// lg.Debug("Rest Server starting", "config_json", cfg)
+	// lg.Debug("Rest Server starting", "config", cfg)
 	// docs
 	docs.SwaggerInfo.Title = "Kidneysmart Auth API"
 	docs.SwaggerInfo.Description = "Authentication in the KidneySmart application"

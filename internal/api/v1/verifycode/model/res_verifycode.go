@@ -1,15 +1,15 @@
 package model
 
-// ResponseStatusVerifyCode represents the response payload for verification.
+import (
+	"encoding/json"
+	"time"
+)
+
+// ResponseVerifyCode represents the response payload for verification.
 // This struct can be used for both successful and error responses.
 // @Description Response payload for the verification code process.
-// @Success 200 {object} ResponseStatusVerifyCode "Verification successful"
-// @Failure 400 {object} ResponseStatusVerifyCode "Invalid request body or parameters"
-// @Failure 401 {object} ResponseStatusVerifyCode "Invalid verification code"
-// @Failure 404 {object} ResponseStatusVerifyCode "User not found"
-// @Failure 429 {object} ResponseStatusVerifyCode "Too many attempts, please try again later"
-// @Failure 500 {object} ResponseStatusVerifyCode "Internal server error"
-type ResponseStatusVerifyCode struct {
+
+type ResponseVerifyCode struct {
 	// Message provides information about the response.
 	// It describes the outcome of the verification process.
 	Message string `json:"message"`
@@ -26,5 +26,38 @@ type ResponseStatusVerifyCode struct {
 	// - "ACCESS_TOKEN_GENERATION_FAILED" if there was an error generating the access token.
 	// - "REFRESH_TOKEN_GENERATION_FAILED" if there was an error generating the refresh token.
 	// - "REFRESH_TOKEN_SAVING_FAILED" if there was an error saving the refresh token.
+	// - "TOO_MANY_ATTEMPTS"
+	// - "VERIFICATION_SUCCESSFUL"
 	Status string `json:"status"`
+	// AccessToken is the JWT token for accessing secured endpoints.
+
+	AccessToken string `json:"accessToken,omitempty"`
+
+	// RefreshToken is the JWT token used to refresh the access token.
+
+	RefreshToken string `json:"refreshToken,omitempty"`
+
+	// ExpiresIn indicates the expiration time of the access token.
+
+	ExpiresIn    *time.Time `json:"-"`
+}
+// Custom MarshalJSON to handle ExpiresIn.
+func (r ResponseVerifyCode) MarshalJSON() ([]byte, error) {
+    type Alias ResponseVerifyCode
+
+    if r.ExpiresIn != nil && !r.ExpiresIn.IsZero() {
+        return json.Marshal(&struct {
+            ExpiresIn time.Time `json:"expiresIn"`
+            *Alias
+        }{
+            ExpiresIn: *r.ExpiresIn,
+            Alias:     (*Alias)(&r),
+        })
+    }
+
+    return json.Marshal(&struct {
+        *Alias
+    }{
+        Alias: (*Alias)(&r),
+    })
 }

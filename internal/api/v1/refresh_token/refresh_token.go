@@ -81,8 +81,8 @@ func (s *RefreshTokenServiceContext) RefreshTokenHandler(c *gin.Context) {
 
 func (s *RefreshTokenServiceContext) validateAndUpdateRefreshToken(ctx context.Context, oldRefreshToken string) (string, error) {
 
-	tokenCollectionName := s.Config.Database.Collections[string(config.AuthTokenCollection)]
-	collection := s.DB.Database(s.Config.Database.Name).Collection(string(tokenCollectionName))
+	tokenCollectionName := s.Config.Database.Collections.AuthTokens
+	collection := s.DB.Database(s.Config.Database.Name).Collection(tokenCollectionName)
 	// Поиск существующего токена
 	var existingToken db.AuthToken
 	err := collection.FindOne(ctx, bson.M{"token": oldRefreshToken}).Decode(&existingToken)

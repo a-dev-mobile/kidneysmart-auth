@@ -1,6 +1,9 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // UnmarshalYAML custom unmarshalling for Environment.
 func (e *Environment) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -31,5 +34,22 @@ func (r *RotationPolicy) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		return nil
 	default:
 		return fmt.Errorf("invalid rotation policy: %s", policyStr)
+	}
+}
+
+// UnmarshalYAML customizes the unmarshalling for LogLevel.
+func (l *LogLevel) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var levelStr string
+	if err := unmarshal(&levelStr); err != nil {
+		return err
+	}
+
+	levelStr = strings.ToLower(levelStr)
+	switch LogLevel(levelStr) {
+	case LogLevelDebug, LogLevelInfo, LogLevelWarning, LogLevelError:
+		*l = LogLevel(levelStr)
+		return nil
+	default:
+		return fmt.Errorf("invalid log level: %s", levelStr)
 	}
 }

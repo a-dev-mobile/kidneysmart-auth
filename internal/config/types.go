@@ -24,10 +24,3 @@ const (
 	LogLevelWarning LogLevel = "warning"
 	LogLevelError   LogLevel = "error"
 )
-
-type CollectionName string
-
-const (
-	AuthUserCollection   CollectionName = "authUser"
-	AuthTokenCollection CollectionName = "authToken"
-)

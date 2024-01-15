@@ -52,7 +52,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		s.Logger.Error("Failed to bind JSON", "error", err.Error())
-		c.JSON(http.StatusBadRequest, model.ResponseStatusVerifyCode{
+		c.JSON(http.StatusBadRequest, model.ResponseVerifyCode{
 			Message: "Invalid request body",
 			Status:  "INVALID_REQUEST_BODY",
 		})
@@ -60,7 +60,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	}
 
 	if err := req.Validate(); err != nil {
-		c.JSON(http.StatusBadRequest, model.ResponseStatusVerifyCode{
+		c.JSON(http.StatusBadRequest, model.ResponseVerifyCode{
 			Message: "Invalid request parameters",
 			Status:  "INVALID_PARAMETERS",
 		})
@@ -69,7 +69,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 
 	if err := validateRequest(req); err != nil {
 		s.Logger.Info("Validation failed", "error", err.Error())
-		c.JSON(http.StatusBadRequest, model.ResponseStatusVerifyCode{
+		c.JSON(http.StatusBadRequest, model.ResponseVerifyCode{
 			Message: err.Error(),
 			Status:  "VALIDATION_FAILED",
 		})
@@ -79,7 +79,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	dbAuthUser, err := s.fetchUser(c.Request.Context(), req.Email)
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		c.JSON(http.StatusNotFound, model.ResponseStatusVerifyCode{
+		c.JSON(http.StatusNotFound, model.ResponseVerifyCode{
 			Message: "User not found",
 			Status:  "USER_NOT_FOUND",
 		})
@@ -87,13 +87,13 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 		return
 	} else if err != nil {
 		s.Logger.Error("Failed to retrieve user", "email", req.Email, "error", err.Error())
-		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{Message: "Error retrieving user"})
+		c.JSON(http.StatusInternalServerError, model.ResponseVerifyCode{Message: "Error retrieving user"})
 		return
 	}
 	// Check if the email is already verified
 	if dbAuthUser.EmailVerified {
 
-		c.JSON(http.StatusAlreadyReported, model.ResponseStatusVerifyCode{
+		c.JSON(http.StatusAlreadyReported, model.ResponseVerifyCode{
 			Message: "Email is already verified",
 			Status:  "EMAIL_ALREADY_VERIFIED",
 		})
@@ -103,14 +103,16 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	const MaxAttempts = 5
 	if dbAuthUser.AttemptCount >= MaxAttempts && time.Since(dbAuthUser.LastAttemptTime).Minutes() < 15 {
 
-		c.JSON(http.StatusTooManyRequests, model.ResponseStatusVerifyCode{Message: "Too many attempts, please try again later"})
+		c.JSON(http.StatusTooManyRequests, model.ResponseVerifyCode{
+			Message: "Too many attempts, please try again later",
+			Status:  "TOO_MANY_ATTEMPTS"})
 		return
 	}
 
 	if dbAuthUser.Code != req.Code {
 		s.incrementAttemptCount(c.Request.Context(), req.Email, dbAuthUser.AttemptCount)
 
-		c.JSON(http.StatusUnauthorized, model.ResponseStatusVerifyCode{
+		c.JSON(http.StatusUnauthorized, model.ResponseVerifyCode{
 			Message: "Invalid code",
 			Status:  "INVALID_CODE",
 		})
@@ -119,7 +121,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	// Update the user's email verification status in the database
 	if err := s.UpdateEmailVerificationStatus(c.Request.Context(), req.Email); err != nil {
 		s.Logger.Error("Failed to update user email verification status", "email", req.Email, "error", err.Error())
-		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{
+		c.JSON(http.StatusInternalServerError, model.ResponseVerifyCode{
 			Message: "Error updating user verification status",
 			Status:  "UPDATE_VERIFICATION_STATUS_FAILED",
 		})
@@ -133,7 +135,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	accessToken, err := utils.GenerateAccessToken(dbAuthUser.ID.Hex(), s.Config.Authentication.JWTSecret, s.Config.Authentication.AccessTokenExpiryHours)
 	if err != nil {
 		s.Logger.Error("Failed to generate access token", "error", err.Error())
-		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{
+		c.JSON(http.StatusInternalServerError, model.ResponseVerifyCode{
 			Message: "Failed to generate access token",
 			Status:  "ACCESS_TOKEN_GENERATION_FAILED",
 		})
@@ -143,7 +145,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	refreshToken, err := utils.GenerateRefreshToken(dbAuthUser.ID.Hex(), s.Config.Authentication.JWTSecret, s.Config.Authentication.RefreshTokenExpiryDays)
 	if err != nil {
 		s.Logger.Error("Failed to generate refresh token", "error", err.Error())
-		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{
+		c.JSON(http.StatusInternalServerError, model.ResponseVerifyCode{
 			Message: "Failed to generate refresh token",
 			Status:  "REFRESH_TOKEN_GENERATION_FAILED",
 		})
@@ -153,7 +155,7 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	// Save the refresh token in the database
 	if err := s.SaveRefreshToken(c.Request.Context(), dbAuthUser.ID, refreshToken); err != nil {
 		s.Logger.Error("Failed to save refresh token", "userID", dbAuthUser.ID.Hex(), "error", err.Error())
-		c.JSON(http.StatusInternalServerError, model.ResponseStatusVerifyCode{
+		c.JSON(http.StatusInternalServerError, model.ResponseVerifyCode{
 			Message: "Error saving refresh token",
 			Status:  "REFRESH_TOKEN_SAVING_FAILED",
 		})
@@ -161,11 +163,12 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	}
 	// Generate the success response
 	expiresIn := utils.CalculateAccessTokenExpiryTime(s.Config.Authentication.AccessTokenExpiryHours)
-	successResponse := model.ResponseSuccessVerifyCode{
+	successResponse := model.ResponseVerifyCode{
 		Message:      "Verification successful",
+		Status:       "VERIFICATION_SUCCESSFUL",
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		ExpiresIn:    expiresIn,
+		ExpiresIn:    &expiresIn,
 	}
 
 	c.JSON(http.StatusOK, successResponse)
@@ -182,27 +185,30 @@ func validateRequest(req model.RequestVerifyCode) error {
 }
 
 func (s *VerifyCodeServiceContext) fetchUser(ctx context.Context, email string) (*db.AuthUser, error) {
-	authUserCollection := s.Config.Database.Collections[string(config.AuthUserCollection)]
-	collection := s.DB.Database(s.Config.Database.Name).Collection(string(authUserCollection))
+	authUserCollection := s.Config.Database.Collections.AuthUser
+	collection := s.DB.Database(s.Config.Database.Name).Collection(authUserCollection)
 	var dbAuthUser db.AuthUser
 	err := collection.FindOne(ctx, bson.M{"email": email}).Decode(&dbAuthUser)
 	return &dbAuthUser, err
 }
 func (s *VerifyCodeServiceContext) UpdateEmailVerificationStatus(ctx context.Context, email string) error {
-	collection := s.DB.Database(s.Config.Database.Name).Collection(string(config.AuthUserCollection))
+	authUserCollection := s.Config.Database.Collections.AuthUser
+	collection := s.DB.Database(s.Config.Database.Name).Collection(authUserCollection)
 	update := bson.M{"$set": bson.M{"emailVerified": true}}
 	_, err := collection.UpdateOne(ctx, bson.M{"email": email}, update)
 	return err
 }
 
 func (s *VerifyCodeServiceContext) incrementAttemptCount(ctx context.Context, email string, currentCount int) {
-	collection := s.DB.Database(s.Config.Database.Name).Collection(string(config.AuthUserCollection))
+	authUserCollection := s.Config.Database.Collections.AuthUser
+	collection := s.DB.Database(s.Config.Database.Name).Collection(authUserCollection)
 	update := bson.M{"$set": bson.M{"attemptCount": currentCount + 1, "lastAttemptTime": time.Now()}}
 	_, _ = collection.UpdateOne(ctx, bson.M{"email": email}, update)
 }
 
 func (s *VerifyCodeServiceContext) resetAttemptCount(ctx context.Context, email string) {
-	collection := s.DB.Database(s.Config.Database.Name).Collection(string(config.AuthUserCollection))
+	authUserCollection := s.Config.Database.Collections.AuthUser
+	collection := s.DB.Database(s.Config.Database.Name).Collection(authUserCollection)
 	update := bson.M{"$set": bson.M{"attemptCount": 0, "lastAttemptTime": time.Time{}}}
 	_, _ = collection.UpdateOne(ctx, bson.M{"email": email}, update)
 }
@@ -210,8 +216,8 @@ func (s *VerifyCodeServiceContext) resetAttemptCount(ctx context.Context, email 
 // SaveRefreshToken сохраняет refresh токен в отдельной коллекции AuthToken.
 func (s *VerifyCodeServiceContext) SaveRefreshToken(ctx context.Context, userID primitive.ObjectID, refreshToken string) error {
 	// Название коллекции токенов
-	tokenCollectionName := s.Config.Database.Collections[string(config.AuthTokenCollection)]
-	collection := s.DB.Database(s.Config.Database.Name).Collection(string(tokenCollectionName))
+	tokenCollectionName := s.Config.Database.Collections.AuthTokens
+	collection := s.DB.Database(s.Config.Database.Name).Collection(tokenCollectionName)
 
 	// Создание объекта AuthToken
 	authToken := db.AuthToken{

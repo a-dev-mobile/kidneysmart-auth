@@ -2,7 +2,7 @@ package config
 
 import (
 	"errors"
-	"strings"
+
 	// Errors package for handling errors.
 	"fmt"
 	// Fmt package for formatting strings.
@@ -59,35 +59,22 @@ type GrpcConfig struct {
 
 type AuthenticationConfig struct {
 	JWTSecret              string `yaml:"JWTSecret"`
-	AccessTokenExpiryHours int    `yaml:"accessTokenExpiryHours"` 
-	RefreshTokenExpiryDays int    `yaml:"refreshTokenExpiryDays"` 
+	AccessTokenExpiryHours int    `yaml:"accessTokenExpiryHours"`
+	RefreshTokenExpiryDays int    `yaml:"refreshTokenExpiryDays"`
 }
 type DatabaseConfig struct {
-	User              string                    `yaml:"user"`
-	Password          string                    `yaml:"password"`
-	Host              string                    `yaml:"host"`
-	Port              string                    `yaml:"port"`
-	Name              string                    `yaml:"name"`
-	ConnectionTimeout int                       `yaml:"connectionTimeoutSeconds"`
-	MaxPoolSize       int                       `yaml:"maxPoolSize"`
-	Collections       map[string]CollectionName `yaml:"collections"`
+	User              string            `yaml:"user"`
+	Password          string            `yaml:"password"`
+	Host              string            `yaml:"host"`
+	Port              string            `yaml:"port"`
+	Name              string            `yaml:"name"`
+	ConnectionTimeout int               `yaml:"connectionTimeoutSeconds"`
+	MaxPoolSize       int               `yaml:"maxPoolSize"`
+	Collections       CollectionsConfig `yaml:"collections"`
 }
-
-// UnmarshalYAML customizes the unmarshalling for LogLevel.
-func (l *LogLevel) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var levelStr string
-	if err := unmarshal(&levelStr); err != nil {
-		return err
-	}
-
-	levelStr = strings.ToLower(levelStr)
-	switch LogLevel(levelStr) {
-	case LogLevelDebug, LogLevelInfo, LogLevelWarning, LogLevelError:
-		*l = LogLevel(levelStr)
-		return nil
-	default:
-		return fmt.Errorf("invalid log level: %s", levelStr)
-	}
+type CollectionsConfig struct {
+	AuthUser   string `yaml:"authUser"`
+	AuthTokens string `yaml:"authTokens"`
 }
 
 // loadConfig reads and decodes the YAML configuration file.

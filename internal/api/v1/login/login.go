@@ -76,8 +76,8 @@ func (s *LoginServiceContext) LoginUserHandler(c *gin.Context) {
 		return
 	}
 
-	authUserCollection := s.Config.Database.Collections[string(config.AuthUserCollection)]
-	collection := s.DB.Database(s.Config.Database.Name).Collection(string(authUserCollection))
+	authUserCollection := s.Config.Database.Collections.AuthUser
+	collection := s.DB.Database(s.Config.Database.Name).Collection(authUserCollection)
 
 	ctx := c.Request.Context()
 
