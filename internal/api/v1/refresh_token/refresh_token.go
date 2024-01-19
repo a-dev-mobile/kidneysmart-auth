@@ -67,8 +67,8 @@ func (s *RefreshTokenServiceContext) RefreshTokenHandler(c *gin.Context) {
 		s.Logger.Error("Failed to generate access token", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to generate access token"})
 		return
-	} 
-	
+	}
+
 	// Отправка новых токенов в ответе
 	expiresIn := utils.CalculateAccessTokenExpiryTime(s.Config.Authentication.AccessTokenExpiryHours)
 	c.JSON(http.StatusOK, model.ResponseRefreshToken{
@@ -81,7 +81,7 @@ func (s *RefreshTokenServiceContext) RefreshTokenHandler(c *gin.Context) {
 
 func (s *RefreshTokenServiceContext) validateAndUpdateRefreshToken(ctx context.Context, oldRefreshToken string) (string, error) {
 
-	tokenCollectionName := s.Config.Database.Collections.AuthTokens
+	tokenCollectionName := s.Config.Database.Collections.AuthToken
 	collection := s.DB.Database(s.Config.Database.Name).Collection(tokenCollectionName)
 	// Поиск существующего токена
 	var existingToken db.AuthToken
@@ -112,10 +112,10 @@ func (s *RefreshTokenServiceContext) validateAndUpdateRefreshToken(ctx context.C
 			"expiresAt": utils.CalculateRefreshTokenExpiryTime(s.Config.Authentication.RefreshTokenExpiryDays),
 		},
 	}
-    _, err = collection.UpdateOne(ctx, bson.M{"token": oldRefreshToken}, update)
-    if err != nil {
-        return "", err
-    }
+	_, err = collection.UpdateOne(ctx, bson.M{"token": oldRefreshToken}, update)
+	if err != nil {
+		return "", err
+	}
 
 	return newRefreshToken, nil
 }

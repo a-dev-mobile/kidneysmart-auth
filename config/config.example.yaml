@@ -1,17 +1,52 @@
+
+
+environment: 
+
 logging:
-  level: debug
+  level: debug # Logging level (debug, info, warning, error)
   fileOutput:
-    filePath: 
+    filePath: "" # Path to the log file
+    rotationPolicy: monthly
+    maxSizeMB: 500
+    maxBackups: 50
 
-grpcServer:
-  port: ""
-  maxConcurrentStreams: 
+# Server settings for processing client requests via REST API
+clientConnectionSettings:
+  ginMode: "debug" # Server operating mode (debug or release)
+  port: "80" # Port and host on which the server is running
+  host: "localhost" # Server
+# List of sources that are allowed to access the REST API (CORS settings)
+  allowedOrigins:
+    - "http://localhost:3000"
+    - "http://localhost:8080"
+    - "http://localhost:80"
+    - "http://localhost"
 
 
-smtpProviders:
-  - name: 
-    smtpHost: 
-    smtpPort:
-    login:
-    password: 
-    fromEmail: 
+# Configuration of external services with which the auth service is integrated
+externalServiceIntegrations:
+ # Settings for connecting to an SMTP server via gRPC to send email
+  smtpServer:
+    grpc:
+      host: 
+      port: 
+      maxConcurrentStreams: 50
+
+# Database configuration
+database:
+  user:
+  password:
+  host:
+  port: 
+  name:
+  connectionTimeoutSeconds: 10
+  maxPoolSize: 50
+  collections: # Names of the collections used
+
+
+
+# Authentication settings
+authentication:
+  JWTSecret: 
+  accessTokenExpiryHours: 24 # Access token lifetime in hours
+  refreshTokenExpiryDays: 7 # Lifetime of refresh token in days

@@ -73,8 +73,8 @@ type DatabaseConfig struct {
 	Collections       CollectionsConfig `yaml:"collections"`
 }
 type CollectionsConfig struct {
-	AuthUser   string `yaml:"authUser"`
-	AuthTokens string `yaml:"authTokens"`
+	AuthUser  string `yaml:"authUser"`
+	AuthToken string `yaml:"authToken"`
 }
 
 // loadConfig reads and decodes the YAML configuration file.

@@ -92,10 +92,22 @@ func (s *VerifyCodeServiceContext) VerifyCodeHandler(c *gin.Context) {
 	}
 	// Check if the email is already verified
 	if dbAuthUser.EmailVerified {
+		var statusMessage, statusCode string
+
+		// Check if the password is set for the user
+		if dbAuthUser.Password == "" {
+			// Email is verified but password is not set
+			statusMessage = "Email is verified but password is not set"
+			statusCode = "EMAIL_VERIFIED_PASSWORD_NOT_SET"
+		} else {
+			// Email is verified and password is set
+			statusMessage = "Email and password are both verified"
+			statusCode = "EMAIL_AND_PASSWORD_VERIFIED"
+		}
 
 		c.JSON(http.StatusAlreadyReported, model.ResponseVerifyCode{
-			Message: "Email is already verified",
-			Status:  "EMAIL_ALREADY_VERIFIED",
+			Message: statusMessage,
+			Status:  statusCode,
 		})
 		return
 	}
@@ -216,7 +228,7 @@ func (s *VerifyCodeServiceContext) resetAttemptCount(ctx context.Context, email 
 // SaveRefreshToken сохраняет refresh токен в отдельной коллекции AuthToken.
 func (s *VerifyCodeServiceContext) SaveRefreshToken(ctx context.Context, userID primitive.ObjectID, refreshToken string) error {
 	// Название коллекции токенов
-	tokenCollectionName := s.Config.Database.Collections.AuthTokens
+	tokenCollectionName := s.Config.Database.Collections.AuthToken
 	collection := s.DB.Database(s.Config.Database.Name).Collection(tokenCollectionName)
 
 	// Создание объекта AuthToken
