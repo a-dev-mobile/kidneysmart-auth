@@ -2,34 +2,42 @@ package utils
 
 import (
 	"errors"
+
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"strings"
+)
+
+var (
+	ErrTokenExpired       = errors.New("token expired")
+	ErrInvalidToken       = errors.New("invalid token")
+	ErrInvalidTokenType   = errors.New("invalid token type")
+	ErrUserIDNotFound     = errors.New("userID not found in token")
+	ErrTokenClaimsInvalid = errors.New("token claims are invalid")
 )
 
 // CalculateAccessTokenExpiryTime возвращает время истечения access токена в UTC.
 func CalculateAccessTokenExpiryTime(hours int) time.Time {
-    return time.Now().UTC().Add(time.Duration(hours) * time.Hour)
+	return time.Now().UTC().Add(time.Duration(hours) * time.Hour)
 }
 
 // CalculateRefreshTokenExpiryTime возвращает время истечения refresh токена в UTC.
 func CalculateRefreshTokenExpiryTime(days int) time.Time {
-    return time.Now().UTC().Add(time.Duration(days) * 24 * time.Hour)
+	return time.Now().UTC().Add(time.Duration(days) * 24 * time.Hour)
 }
 
 // GenerateAccessToken создает JWT access токен для верифицированного пользователя.
 func GenerateAccessToken(userID string, jwtSecret string, accessTokenExpiryHours int) (string, error) {
-
 	claims := jwt.MapClaims{
 		"userID": userID,
 		"type":   "access",
-		"exp":    CalculateAccessTokenExpiryTime(accessTokenExpiryHours).Unix(),
-		// "exp":    time.Now().Add(time.Duration(1) * time.Minute).Unix(),
+		// "exp":    CalculateAccessTokenExpiryTime(accessTokenExpiryHours).Unix(),
+		"exp": time.Now().Add(time.Duration(1) * time.Minute).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(jwtSecret))
-	return tokenString, err
+	return token.SignedString([]byte(jwtSecret))
 }
 
 // GenerateRefreshToken создает JWT refresh токен для верифицированного пользователя.
@@ -41,37 +49,41 @@ func GenerateRefreshToken(userID string, jwtSecret string, refreshTokenExpiryDay
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	refreshTokenString, err := token.SignedString([]byte(jwtSecret))
-	return refreshTokenString, err
+	return token.SignedString([]byte(jwtSecret))
 }
 
-// ParseToken парсит и валидирует JWT, извлекая userID.
-// Тип токена указывается как "access" или "refresh".
+// ParseToken парсит и валидирует JWT, извлекая userID и проверяя срок действия.
 func ParseToken(tokenString string, jwtSecret string, expectedTokenType string) (string, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Проверка метода подписи
+	token, err := jwt.ParseWithClaims(tokenString, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
+			return nil, ErrInvalidToken
 		}
 		return []byte(jwtSecret), nil
 	})
 
 	if err != nil {
-		return "", err
+		if strings.Contains(err.Error(), jwt.ErrTokenExpired.Error()) {
+			return "", ErrTokenExpired
+		}
+
+		return "", ErrInvalidToken
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+	if claims, ok := token.Claims.(*jwt.MapClaims); ok {
 		// Проверка типа токена
-		if tokenType, ok := claims["type"].(string); !ok || tokenType != expectedTokenType {
-			return "", errors.New("invalid token type")
+		if tokenType, ok := (*claims)["type"].(string); !ok || tokenType != expectedTokenType {
+			return "", ErrInvalidTokenType
 		}
 
-		userID, ok := claims["userID"].(string)
-		if !ok {
-			return "", errors.New("userID not found in token")
+		if exp, ok := (*claims)["exp"].(float64); !ok || time.Now().UTC().Unix() > int64(exp) {
+			return "", ErrTokenExpired
 		}
-		return userID, nil
+
+		if userID, ok := (*claims)["userID"].(string); ok {
+			return userID, nil
+		}
+		return "", ErrUserIDNotFound
 	}
 
-	return "", errors.New("invalid token")
+	return "", ErrTokenClaimsInvalid
 }

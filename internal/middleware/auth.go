@@ -4,9 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/a-dev-mobile/kidneysmart-auth/internal/utils"
+	"github.com/a-dev-mobile/kidneysmart-auth/internal/utils" // Убедитесь, что путь к пакету корректен
 	"github.com/gin-gonic/gin"
-	// "yourapp/jwt" // Предполагается, что ParseToken находится в этом пакете
 )
 
 // ContextKey - тип для ключей контекста
@@ -43,13 +42,19 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		if err != nil {
 			var status string
 			var message string
-			switch err.Error() {
-			case "Token expired":
+			switch err {
+			case utils.ErrTokenExpired:
 				status = "TOKEN_EXPIRED"
 				message = "Your token has expired. Please log in again."
-			case "Invalid token":
+			case utils.ErrInvalidToken:
 				status = "INVALID_TOKEN"
-				message = "The provided token is invalid. Check the token and try again."
+				message = "The provided token is invalid. Check the token and try again."	
+				case  utils.ErrInvalidTokenType:
+				status = "INVALID_TOKEN_TYPE"
+				message = "The token provided is of a different type. Check the token and try again."
+			case utils.ErrUserIDNotFound:
+				status = "USER_ID_NOT_FOUND"
+				message = "UserID not found in token."
 			default:
 				status = "AUTHENTICATION_FAILED"
 				message = "Error occurred during token validation. Please try again."
