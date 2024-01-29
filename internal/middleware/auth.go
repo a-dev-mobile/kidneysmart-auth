@@ -46,15 +46,15 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 			case utils.ErrTokenExpired:
 				status = "TOKEN_EXPIRED"
 				message = "Your token has expired. Please log in again."
-			case utils.ErrInvalidToken:
+			case utils.ErrInvalidToken, utils.ErrInvalidTokenType:
 				status = "INVALID_TOKEN"
-				message = "The provided token is invalid. Check the token and try again."	
-				case  utils.ErrInvalidTokenType:
-				status = "INVALID_TOKEN_TYPE"
-				message = "The token provided is of a different type. Check the token and try again."
+				message = "The provided token is invalid. Check the token and try again."
 			case utils.ErrUserIDNotFound:
 				status = "USER_ID_NOT_FOUND"
 				message = "UserID not found in token."
+			case utils.ErrTokenSignatureInvalid:
+				status = "INVALID_TOKEN_SIGNATURE"
+				message = "The token's signature is invalid. The token may have been tampered with."
 			default:
 				status = "AUTHENTICATION_FAILED"
 				message = "Error occurred during token validation. Please try again."

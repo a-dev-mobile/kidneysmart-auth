@@ -10,11 +10,12 @@ import (
 )
 
 var (
-	ErrTokenExpired       = errors.New("token expired")
-	ErrInvalidToken       = errors.New("invalid token")
-	ErrInvalidTokenType   = errors.New("invalid token type")
-	ErrUserIDNotFound     = errors.New("userID not found in token")
-	ErrTokenClaimsInvalid = errors.New("token claims are invalid")
+	ErrTokenExpired         = errors.New("token is expired")
+	ErrInvalidToken         = errors.New("invalid token")
+	ErrInvalidTokenType     = errors.New("invalid token type")
+	ErrUserIDNotFound       = errors.New("userID not found in token")
+	ErrTokenClaimsInvalid   = errors.New("token claims are invalid")
+	ErrTokenSignatureInvalid = errors.New("token signature is invalid")
 )
 
 // CalculateAccessTokenExpiryTime возвращает время истечения access токена в UTC.
@@ -53,14 +54,14 @@ func GenerateRefreshToken(userID string, jwtSecret string, refreshTokenExpiryDay
 }
 
 // ParseToken парсит и валидирует JWT, извлекая userID и проверяя срок действия.
-func ParseToken(tokenString string, jwtSecret string, expectedTokenType string) (string, error) {
+func ParseToken(tokenString, jwtSecret, expectedTokenType string) (string, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, ErrInvalidToken
+			return nil, ErrTokenSignatureInvalid
 		}
 		return []byte(jwtSecret), nil
 	})
-
+// отлов встроеным методом что токен протух
 	if err != nil {
 		if strings.Contains(err.Error(), jwt.ErrTokenExpired.Error()) {
 			return "", ErrTokenExpired
